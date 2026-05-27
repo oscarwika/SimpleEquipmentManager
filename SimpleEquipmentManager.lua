@@ -19,6 +19,11 @@ local characterFrameHooked = false
 local VISIBLE_ROWS = 8
 local ROW_HEIGHT = 24
 local ROW_SPACING = 4
+local ICON_CELL = 26
+local ICON_COLS = 9
+local ICON_VISIBLE_ROWS = 6
+local ICON_ROW_HEIGHT = 28
+local iconGridRows = {}
 local BACKDROP_TEMPLATE = BackdropTemplateMixin and "BackdropTemplate" or nil
 
 local function Print(msg)
@@ -191,17 +196,6 @@ local function DeleteSetById(setID)
     end
 end
 
-local function UpdateSetSnapshotById(setID)
-    local setData = FindSetById(setID)
-    if not setData then
-        return false
-    end
-
-    setData.itemsBySlot = GetEquippedSnapshot()
-    Print("Updated equipped items for set: " .. (setData.name or "Unknown"))
-    return true
-end
-
 local function SortSets()
     table.sort(DB.sets, function(a, b)
         return (a.name or "") < (b.name or "")
@@ -243,10 +237,62 @@ local function HideCreateSetFrame()
     end
 end
 
+local function RefreshIconGrid()
+    if not createSetFrame or not createSetFrame.iconScrollFrame then
+        return
+    end
+
+    local totalRows = math.ceil(#ICON_CHOICES / ICON_COLS)
+    FauxScrollFrame_Update(createSetFrame.iconScrollFrame, totalRows, ICON_VISIBLE_ROWS, ICON_ROW_HEIGHT)
+    local offset = FauxScrollFrame_GetOffset(createSetFrame.iconScrollFrame)
+
+    for rowIndex = 1, ICON_VISIBLE_ROWS do
+        local row = iconGridRows[rowIndex]
+        local dataRow = rowIndex + offset
+
+        for col = 1, ICON_COLS do
+            local btn = row.buttons[col]
+            local iconIndex = (dataRow - 1) * ICON_COLS + col
+
+            if iconIndex <= #ICON_CHOICES then
+                btn.iconIndex = iconIndex
+                btn.iconTex:SetTexture(ICON_CHOICES[iconIndex])
+                btn.selected:SetShown(iconIndex == selectedIconIndex)
+                btn:Show()
+            else
+                btn.iconIndex = nil
+                btn:Hide()
+            end
+        end
+    end
+end
+
+local function SelectIcon(index)
+    if index < 1 or index > #ICON_CHOICES then
+        return
+    end
+    selectedIconIndex = index
+    if createSetFrame then
+        RefreshIconGrid()
+    end
+end
+
+local function ScrollIconGridToSelection()
+    if not createSetFrame or not createSetFrame.iconScrollFrame then
+        return
+    end
+
+    local row = math.floor((selectedIconIndex - 1) / ICON_COLS)
+    local totalRows = math.ceil(#ICON_CHOICES / ICON_COLS)
+    local maxOffset = math.max(0, totalRows - ICON_VISIBLE_ROWS)
+    FauxScrollFrame_SetOffset(createSetFrame.iconScrollFrame, math.min(row, maxOffset))
+    RefreshIconGrid()
+end
+
 local function ShowCreateSetFrame(setData)
     if not createSetFrame then
         createSetFrame = CreateFrame("Frame", "SEMCreatSetFrame", UIParent, BACKDROP_TEMPLATE)
-        createSetFrame:SetSize(300, 185)
+        createSetFrame:SetSize(300, 340)
         createSetFrame:SetFrameStrata("DIALOG")
         createSetFrame:SetToplevel(true)
         createSetFrame:EnableMouse(true)
@@ -280,21 +326,52 @@ local function ShowCreateSetFrame(setData)
 
         createSetFrame.iconLabel = createSetFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         createSetFrame.iconLabel:SetPoint("TOPLEFT", 20, -88)
-        createSetFrame.iconLabel:SetText("Icon")
+        createSetFrame.iconLabel:SetText("Icon (click to select)")
 
-        createSetFrame.prevBtn = CreateFrame("Button", nil, createSetFrame, "UIPanelButtonTemplate")
-        createSetFrame.prevBtn:SetSize(24, 24)
-        createSetFrame.prevBtn:SetPoint("TOPLEFT", 20, -106)
-        createSetFrame.prevBtn:SetText("<")
+        createSetFrame.iconScrollFrame = CreateFrame("ScrollFrame", "SEMIconScrollFrame", createSetFrame, "FauxScrollFrameTemplate")
+        createSetFrame.iconScrollFrame:SetPoint("TOPLEFT", 16, -104)
+        createSetFrame.iconScrollFrame:SetSize(ICON_COLS * ICON_CELL + 8, ICON_VISIBLE_ROWS * ICON_ROW_HEIGHT)
+        createSetFrame.iconScrollFrame:SetScript("OnVerticalScroll", function(self, offset)
+            FauxScrollFrame_OnVerticalScroll(self, offset, ICON_ROW_HEIGHT, RefreshIconGrid)
+        end)
 
-        createSetFrame.iconPreview = createSetFrame:CreateTexture(nil, "ARTWORK")
-        createSetFrame.iconPreview:SetSize(24, 24)
-        createSetFrame.iconPreview:SetPoint("LEFT", createSetFrame.prevBtn, "RIGHT", 10, 0)
+        local gridTop = -104
+        for rowIndex = 1, ICON_VISIBLE_ROWS do
+            local row = CreateFrame("Frame", nil, createSetFrame)
+            row:SetSize(ICON_COLS * ICON_CELL, ICON_CELL)
+            row:SetPoint("TOPLEFT", 20, gridTop - (rowIndex - 1) * ICON_ROW_HEIGHT)
+            row.buttons = {}
 
-        createSetFrame.nextBtn = CreateFrame("Button", nil, createSetFrame, "UIPanelButtonTemplate")
-        createSetFrame.nextBtn:SetSize(24, 24)
-        createSetFrame.nextBtn:SetPoint("LEFT", createSetFrame.iconPreview, "RIGHT", 10, 0)
-        createSetFrame.nextBtn:SetText(">")
+            for col = 1, ICON_COLS do
+                local btn = CreateFrame("Button", nil, row)
+                btn:SetSize(ICON_CELL, ICON_CELL)
+                btn:SetPoint("TOPLEFT", (col - 1) * ICON_CELL, 0)
+
+                btn.iconTex = btn:CreateTexture(nil, "ARTWORK")
+                btn.iconTex:SetAllPoints(true)
+
+                btn.highlight = btn:CreateTexture(nil, "HIGHLIGHT")
+                btn.highlight:SetAllPoints(true)
+                btn.highlight:SetTexture("Interface\\Buttons\\ButtonHilight-Square")
+                btn.highlight:SetBlendMode("ADD")
+
+                btn.selected = btn:CreateTexture(nil, "OVERLAY")
+                btn.selected:SetAllPoints(true)
+                btn.selected:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+                btn.selected:SetVertexColor(1, 0.82, 0)
+                btn.selected:Hide()
+
+                btn:SetScript("OnClick", function(self)
+                    if self.iconIndex then
+                        SelectIcon(self.iconIndex)
+                    end
+                end)
+
+                row.buttons[col] = btn
+            end
+
+            iconGridRows[rowIndex] = row
+        end
 
         createSetFrame.cancelBtn = CreateFrame("Button", nil, createSetFrame, "UIPanelButtonTemplate")
         createSetFrame.cancelBtn:SetSize(70, 24)
@@ -306,37 +383,7 @@ local function ShowCreateSetFrame(setData)
         createSetFrame.saveBtn:SetPoint("RIGHT", createSetFrame.cancelBtn, "LEFT", -8, 0)
         createSetFrame.saveBtn:SetText(SAVE)
 
-        createSetFrame.updateItemsBtn = CreateFrame("Button", nil, createSetFrame, "UIPanelButtonTemplate")
-        createSetFrame.updateItemsBtn:SetSize(90, 24)
-        createSetFrame.updateItemsBtn:SetPoint("RIGHT", createSetFrame.saveBtn, "LEFT", -8, 0)
-        createSetFrame.updateItemsBtn:SetText("Update Gear")
-        createSetFrame.updateItemsBtn:Hide()
-
-        createSetFrame.prevBtn:SetScript("OnClick", function()
-            selectedIconIndex = selectedIconIndex - 1
-            if selectedIconIndex < 1 then
-                selectedIconIndex = #ICON_CHOICES
-            end
-            createSetFrame.iconPreview:SetTexture(ICON_CHOICES[selectedIconIndex])
-        end)
-
-        createSetFrame.nextBtn:SetScript("OnClick", function()
-            selectedIconIndex = selectedIconIndex + 1
-            if selectedIconIndex > #ICON_CHOICES then
-                selectedIconIndex = 1
-            end
-            createSetFrame.iconPreview:SetTexture(ICON_CHOICES[selectedIconIndex])
-        end)
-
         createSetFrame.cancelBtn:SetScript("OnClick", HideCreateSetFrame)
-        createSetFrame.updateItemsBtn:SetScript("OnClick", function()
-            if not editingSetId then
-                return
-            end
-            if UpdateSetSnapshotById(editingSetId) then
-                RefreshSetRows()
-            end
-        end)
         createSetFrame.saveBtn:SetScript("OnClick", function()
             local rawName = createSetFrame.nameEdit:GetText() or ""
             local name = string.gsub(rawName, "^%s*(.-)%s*$", "%1")
@@ -360,7 +407,8 @@ local function ShowCreateSetFrame(setData)
 
                 editedSet.name = name
                 editedSet.icon = ICON_CHOICES[selectedIconIndex]
-                Print("Updated set: " .. name)
+                editedSet.itemsBySlot = GetEquippedSnapshot()
+                Print("Updated set (name, icon, and gear): " .. name)
             else
                 CreateSet(name, ICON_CHOICES[selectedIconIndex])
             end
@@ -380,7 +428,6 @@ local function ShowCreateSetFrame(setData)
     if setData then
         createSetFrame.title:SetText("Edit Set")
         createSetFrame.saveBtn:SetText("Update")
-        createSetFrame.updateItemsBtn:Show()
         createSetFrame.nameEdit:SetText(setData.name or "")
         selectedIconIndex = 1
         for i, iconPath in ipairs(ICON_CHOICES) do
@@ -392,12 +439,11 @@ local function ShowCreateSetFrame(setData)
     else
         createSetFrame.title:SetText("Create New Set")
         createSetFrame.saveBtn:SetText(SAVE)
-        createSetFrame.updateItemsBtn:Hide()
         createSetFrame.nameEdit:SetText("")
         selectedIconIndex = 1
     end
 
-    createSetFrame.iconPreview:SetTexture(ICON_CHOICES[selectedIconIndex])
+    ScrollIconGridToSelection()
     createSetFrame:Show()
     createSetFrame.nameEdit:SetFocus()
 end
