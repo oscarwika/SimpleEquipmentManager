@@ -588,22 +588,25 @@ local function TogglePanel()
 end
 
 local function CreateCharacterButton()
-    if button or not CharacterFrame then
+    if button or not CharacterFrame or not PaperDollFrame then
         return
     end
 
-    button = CreateFrame("Button", "SimpleEquipmentManagerButton", CharacterFrame)
+    button = CreateFrame("Button", "SimpleEquipmentManagerButton", PaperDollFrame)
     button:SetSize(28, 28)
-    button:SetPoint("TOPRIGHT", CharacterFrame, "TOPRIGHT", -34, -46)
+    button:SetPoint("TOPRIGHT", CharacterFrame, "TOPRIGHT", -45, -42)
 
     button.bg = button:CreateTexture(nil, "ARTWORK")
     button.bg:SetAllPoints(true)
     button.bg:SetTexture("Interface\\Buttons\\UI-Quickslot2")
 
     button.icon = button:CreateTexture(nil, "OVERLAY")
-    button.icon:SetSize(18, 18)
+    button.icon:SetSize(24, 24)
     button.icon:SetPoint("CENTER")
     button.icon:SetTexture("Interface\\Icons\\INV_Helmet_03")
+    if button.icon.SetDesaturated then
+        button.icon:SetDesaturated(true)
+    end
 
     button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square")
     button:RegisterForClicks("LeftButtonUp")
@@ -635,6 +638,18 @@ local function EnsureUI()
             end
             HideCreateSetFrame()
         end)
+
+        if CharacterFrame_ShowSubFrame then
+            hooksecurefunc("CharacterFrame_ShowSubFrame", function(frameName)
+                if frameName ~= "PaperDollFrame" then
+                    if panel and panel:IsShown() then
+                        panel:Hide()
+                    end
+                    HideCreateSetFrame()
+                end
+            end)
+        end
+
         characterFrameHooked = true
     end
 end
