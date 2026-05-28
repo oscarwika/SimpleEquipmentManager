@@ -26,8 +26,148 @@ local ICON_ROW_HEIGHT = 28
 local iconGridRows = {}
 local BACKDROP_TEMPLATE = BackdropTemplateMixin and "BackdropTemplate" or nil
 
+local TEX_TAB_HIGHLIGHT = "Interface\\PaperDollInfoFrame\\UI-Character-Tab-Highlight"
+local PANEL_WIDTH = 222
+local PANEL_HEIGHT = 300
+
+local CHROME_BG_COLOR = { 0.12, 0.12, 0.12, 0.95 }
+local ROW_COLOR = { 0.35, 0.35, 0.35, 0.12 }
+local ROW_HOVER_COLOR = { 0.5, 0.5, 0.5, 0.38 }
+
+local TEX_GEAR_MANAGER_BORDER = "Interface\\PaperDollInfoFrame\\UI-GearManager-Border"
+local TEX_GEAR_MANAGER_TITLE = "Interface\\PaperDollInfoFrame\\UI-GearManager-Title-Background"
+local TEX_TOOLTIP_BG = "Interface\\Tooltips\\UI-Tooltip-Background"
+local BORDER_CORNER = 64
+-- Inner fill/title insets matched to AceGUI gear-manager window (Blizzard layout).
+local CHROME_FILL_LEFT = 8
+local CHROME_FILL_TOP = 24
+local CHROME_FILL_RIGHT = 6
+local CHROME_FILL_BOTTOM = 8
+local CHROME_TITLE_RIGHT = 28
+local CHROME_TITLE_HEIGHT = 24
+
 local function Print(msg)
     DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99SEM|r: " .. msg)
+end
+
+local function DesaturateTexture(tex)
+    if tex and tex.SetDesaturated then
+        tex:SetDesaturated(true)
+    end
+end
+
+-- Nine-slice gear-manager border (same ornate edges as Blizzard's equipment UI / character-adjacent panels).
+local function CreateGearManagerBorderPiece(frame, name)
+    local tex = frame:CreateTexture(name, "BORDER")
+    tex:SetTexture(TEX_GEAR_MANAGER_BORDER)
+    return tex
+end
+
+local function ApplyGearManagerBorder(frame, namePrefix)
+    if frame.gearBorder then
+        return
+    end
+
+    namePrefix = namePrefix or "SEM"
+    local tl = CreateGearManagerBorderPiece(frame, namePrefix .. "BorderTopLeft")
+    tl:SetWidth(BORDER_CORNER)
+    tl:SetHeight(BORDER_CORNER)
+    tl:SetPoint("TOPLEFT")
+    tl:SetTexCoord(0.501953125, 0.625, 0, 1)
+
+    local tr = CreateGearManagerBorderPiece(frame, namePrefix .. "BorderTopRight")
+    tr:SetWidth(BORDER_CORNER)
+    tr:SetHeight(BORDER_CORNER)
+    tr:SetPoint("TOPRIGHT")
+    tr:SetTexCoord(0.625, 0.75, 0, 1)
+
+    local top = CreateGearManagerBorderPiece(frame, namePrefix .. "BorderTop")
+    top:SetHeight(BORDER_CORNER)
+    top:SetPoint("TOPLEFT", tl, "TOPRIGHT")
+    top:SetPoint("TOPRIGHT", tr, "TOPLEFT")
+    top:SetTexCoord(0.25, 0.369140625, 0, 1)
+
+    local bl = CreateGearManagerBorderPiece(frame, namePrefix .. "BorderBottomLeft")
+    bl:SetWidth(BORDER_CORNER)
+    bl:SetHeight(BORDER_CORNER)
+    bl:SetPoint("BOTTOMLEFT")
+    bl:SetTexCoord(0.751953125, 0.875, 0, 1)
+
+    local br = CreateGearManagerBorderPiece(frame, namePrefix .. "BorderBottomRight")
+    br:SetWidth(BORDER_CORNER)
+    br:SetHeight(BORDER_CORNER)
+    br:SetPoint("BOTTOMRIGHT")
+    br:SetTexCoord(0.875, 1, 0, 1)
+
+    local bottom = CreateGearManagerBorderPiece(frame, namePrefix .. "BorderBottom")
+    bottom:SetHeight(BORDER_CORNER)
+    bottom:SetPoint("BOTTOMLEFT", bl, "BOTTOMRIGHT")
+    bottom:SetPoint("BOTTOMRIGHT", br, "BOTTOMLEFT")
+    bottom:SetTexCoord(0.376953125, 0.498046875, 0, 1)
+
+    local left = CreateGearManagerBorderPiece(frame, namePrefix .. "BorderLeft")
+    left:SetWidth(BORDER_CORNER)
+    left:SetPoint("TOPLEFT", tl, "BOTTOMLEFT")
+    left:SetPoint("BOTTOMLEFT", bl, "TOPLEFT")
+    left:SetTexCoord(0.001953125, 0.125, 0, 1)
+
+    local right = CreateGearManagerBorderPiece(frame, namePrefix .. "BorderRight")
+    right:SetWidth(BORDER_CORNER)
+    right:SetPoint("TOPRIGHT", tr, "BOTTOMRIGHT")
+    right:SetPoint("BOTTOMRIGHT", br, "TOPRIGHT")
+    right:SetTexCoord(0.1171875, 0.2421875, 0, 1)
+
+    frame.gearBorder = true
+end
+
+-- Gear-manager border + title band + fill (equipment panel, create/edit set dialog).
+local function ApplyCharacterPanelChrome(frame, borderPrefix)
+    if frame.SetBackdrop then
+        frame:SetBackdrop(nil)
+    end
+
+    ApplyGearManagerBorder(frame, borderPrefix)
+
+    if not frame.bgFill then
+        frame.bgFill = frame:CreateTexture(nil, "BACKGROUND", nil, -1)
+        frame.bgFill:SetTexture(TEX_TOOLTIP_BG)
+    end
+    frame.bgFill:ClearAllPoints()
+    frame.bgFill:SetPoint("TOPLEFT", CHROME_FILL_LEFT, -CHROME_FILL_TOP)
+    frame.bgFill:SetPoint("BOTTOMRIGHT", -CHROME_FILL_RIGHT, CHROME_FILL_BOTTOM)
+    frame.bgFill:SetVertexColor(CHROME_BG_COLOR[1], CHROME_BG_COLOR[2], CHROME_BG_COLOR[3], CHROME_BG_COLOR[4])
+
+    if not frame.titleBg then
+        frame.titleBg = frame:CreateTexture(nil, "BACKGROUND", nil, 0)
+    end
+    frame.titleBg:SetTexture(TEX_GEAR_MANAGER_TITLE)
+    frame.titleBg:ClearAllPoints()
+    frame.titleBg:SetPoint("TOPLEFT", 9, -6)
+    frame.titleBg:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", -CHROME_TITLE_RIGHT, -CHROME_TITLE_HEIGHT)
+    frame.titleBg:SetVertexColor(1, 1, 1, 1)
+end
+
+-- Sidecar attached to the character frame's right edge (does not cover gear/stats).
+local function UpdatePanelLayout()
+    if not panel or not CharacterFrame then
+        return
+    end
+
+    panel:SetSize(PANEL_WIDTH, PANEL_HEIGHT)
+    panel:ClearAllPoints()
+    -- Negative X tucks the panel under the frame border; Y=0 aligns tops.
+    panel:SetPoint("TOPLEFT", CharacterFrame, "TOPRIGHT", -38.5, -10.8)
+end
+
+local function UpdateButtonSelectedState()
+    if not button then
+        return
+    end
+    if panel and panel:IsShown() then
+        button.selected:Show()
+    else
+        button.selected:Hide()
+    end
 end
 
 local function LoadMacroIcons()
@@ -237,6 +377,90 @@ local function HideCreateSetFrame()
     end
 end
 
+local setRowMenuFrame
+local ShowCreateSetFrame
+
+local function ConfirmDeleteSet(setData)
+    if not setData then
+        return
+    end
+
+    StaticPopupDialogs["SEM_DELETE_SET_CONFIRM"] = {
+        text = "Delete set \"%s\"?",
+        button1 = YES,
+        button2 = NO,
+        OnAccept = function(_, data)
+            DeleteSetById(data)
+            RefreshSetRows()
+        end,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = STATICPOPUP_NUMDIALOGS,
+    }
+
+    StaticPopup_Show("SEM_DELETE_SET_CONFIRM", setData.name or "Set", nil, setData.id)
+end
+
+local function AddSetRowMenuButton(level, text, onSelect, arg1)
+    local info = UIDropDownMenu_CreateInfo()
+    info.text = text
+    info.notCheckable = true
+    info.isNotRadio = true
+    info.arg1 = arg1
+    info.func = function()
+        if CloseDropDownMenus then
+            CloseDropDownMenus()
+        else
+            HideDropDownMenu(1)
+        end
+        onSelect(arg1)
+    end
+    UIDropDownMenu_AddButton(info, level)
+end
+
+local function ShowSetRowMenu(anchor, setData)
+    if not setData then
+        return
+    end
+
+    if not setRowMenuFrame then
+        setRowMenuFrame = CreateFrame("Frame", "SEMSetRowMenu", UIParent, "UIDropDownMenuTemplate")
+        setRowMenuFrame.displayMode = "MENU"
+        setRowMenuFrame.initialize = function(self, level)
+            if level ~= 1 then
+                return
+            end
+
+            local menuSetData = self.setData
+            if not menuSetData then
+                return
+            end
+
+            AddSetRowMenuButton(level, "Edit", function(data)
+                C_Timer.After(0, function()
+                    ShowCreateSetFrame(data)
+                end)
+            end, menuSetData)
+
+            AddSetRowMenuButton(level, DELETE, ConfirmDeleteSet, menuSetData)
+        end
+    end
+
+    setRowMenuFrame.setData = setData
+    ToggleDropDownMenu(1, nil, setRowMenuFrame, anchor, 0, 0)
+end
+
+local function SetRowHover(row, hovered)
+    if hovered then
+        row.bg:SetVertexColor(ROW_HOVER_COLOR[1], ROW_HOVER_COLOR[2], ROW_HOVER_COLOR[3], ROW_HOVER_COLOR[4])
+        row.settingsBtn:Show()
+    else
+        row.bg:SetVertexColor(ROW_COLOR[1], ROW_COLOR[2], ROW_COLOR[3], ROW_COLOR[4])
+        row.settingsBtn:Hide()
+    end
+end
+
 local function RefreshIconGrid()
     if not createSetFrame or not createSetFrame.iconScrollFrame then
         return
@@ -289,7 +513,7 @@ local function ScrollIconGridToSelection()
     RefreshIconGrid()
 end
 
-local function ShowCreateSetFrame(setData)
+ShowCreateSetFrame = function(setData)
     if not createSetFrame then
         createSetFrame = CreateFrame("Frame", "SEMCreatSetFrame", UIParent, BACKDROP_TEMPLATE)
         createSetFrame:SetSize(300, 340)
@@ -301,18 +525,24 @@ local function ShowCreateSetFrame(setData)
         createSetFrame:SetScript("OnDragStart", createSetFrame.StartMoving)
         createSetFrame:SetScript("OnDragStop", createSetFrame.StopMovingOrSizing)
 
-        createSetFrame:SetBackdrop({
-            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-            tile = true,
-            tileSize = 16,
-            edgeSize = 16,
-            insets = { left = 4, right = 4, top = 4, bottom = 4 },
-        })
+        ApplyCharacterPanelChrome(createSetFrame, "SEMCreate")
 
         createSetFrame.title = createSetFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        createSetFrame.title:SetPoint("TOP", 0, -14)
+        createSetFrame.title:SetPoint("TOP", 0, -9)
         createSetFrame.title:SetText("Create New Set")
+
+        createSetFrame.closeButton = CreateFrame("Button", "SEMCreateSetCloseButton", createSetFrame, "UIPanelCloseButton")
+        createSetFrame.closeButton:SetPoint("CENTER", createSetFrame, "TOPRIGHT", -14, -15)
+        if createSetFrame.closeButton.SetFrameLevel and createSetFrame.GetFrameLevel then
+            createSetFrame.closeButton:SetFrameLevel(createSetFrame:GetFrameLevel() + 10)
+        end
+        createSetFrame.closeButton:SetScript("OnClick", HideCreateSetFrame)
+        createSetFrame.closeButton:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+            GameTooltip:SetText(CLOSE)
+            GameTooltip:Show()
+        end)
+        createSetFrame.closeButton:SetScript("OnLeave", GameTooltip_Hide)
 
         createSetFrame.nameLabel = createSetFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         createSetFrame.nameLabel:SetPoint("TOPLEFT", 20, -40)
@@ -449,28 +679,37 @@ local function ShowCreateSetFrame(setData)
 end
 
 local function CreateSetPanel()
-    panel = CreateFrame("Frame", "SimpleEquipmentManagerPanel", UIParent, BACKDROP_TEMPLATE)
-    panel:SetSize(230, 300)
-    panel:SetPoint("TOPLEFT", CharacterFrame, "TOPRIGHT", -20, -22)
-    panel:SetFrameStrata("HIGH")
-    panel:SetToplevel(true)
+    panel = CreateFrame("Frame", "SimpleEquipmentManagerPanel", CharacterFrame, BACKDROP_TEMPLATE)
     panel:Hide()
+    panel:EnableMouse(true)
+    ApplyCharacterPanelChrome(panel, "SEMPanel")
+    UpdatePanelLayout()
 
-    panel:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true,
-        tileSize = 16,
-        edgeSize = 12,
-        insets = { left = 3, right = 3, top = 3, bottom = 3 },
-    })
+    if CharacterFrame.GetFrameLevel then
+        panel:SetFrameLevel(CharacterFrame:GetFrameLevel() + 2)
+    end
 
     panel.title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    panel.title:SetPoint("TOPLEFT", 12, -10)
-    panel.title:SetText("Equip")
+    panel.title:SetPoint("TOP", 0, -9)
+    panel.title:SetText("Equipment Manager")
+
+    panel.closeButton = CreateFrame("Button", "SEMEquipmentPanelCloseButton", panel, "UIPanelCloseButton")
+    panel.closeButton:SetPoint("CENTER", panel, "TOPRIGHT", -14, -15)
+    if panel.closeButton.SetFrameLevel and panel.GetFrameLevel then
+        panel.closeButton:SetFrameLevel(panel:GetFrameLevel() + 10)
+    end
+    panel.closeButton:SetScript("OnClick", function()
+        panel:Hide()
+    end)
+    panel.closeButton:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        GameTooltip:SetText(CLOSE)
+        GameTooltip:Show()
+    end)
+    panel.closeButton:SetScript("OnLeave", GameTooltip_Hide)
 
     panel.newSetButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    panel.newSetButton:SetSize(206, 28)
+    panel.newSetButton:SetSize(PANEL_WIDTH - 24, 28)
     panel.newSetButton:SetPoint("BOTTOM", 0, 12)
     panel.newSetButton:SetText("New Set")
     panel.newSetButton:SetScript("OnClick", function()
@@ -487,13 +726,13 @@ local function CreateSetPanel()
     local startY = -34
     for i = 1, VISIBLE_ROWS do
         local row = CreateFrame("Button", nil, panel)
-        row:SetSize(194, ROW_HEIGHT)
+        row:SetSize(PANEL_WIDTH - 36, ROW_HEIGHT)
         row:SetPoint("TOPLEFT", 12, startY - (i - 1) * (ROW_HEIGHT + ROW_SPACING))
 
         row.bg = row:CreateTexture(nil, "BACKGROUND")
         row.bg:SetAllPoints(true)
         row.bg:SetTexture("Interface\\Buttons\\WHITE8X8")
-        row.bg:SetVertexColor(0, 0, 0, 0.25)
+        row.bg:SetVertexColor(ROW_COLOR[1], ROW_COLOR[2], ROW_COLOR[3], ROW_COLOR[4])
 
         row.icon = row:CreateTexture(nil, "ARTWORK")
         row.icon:SetSize(20, 20)
@@ -506,52 +745,52 @@ local function CreateSetPanel()
 
         row.checkmark = row:CreateTexture(nil, "OVERLAY")
         row.checkmark:SetSize(16, 16)
-        row.checkmark:SetPoint("RIGHT", -50, 0)
+        row.checkmark:SetPoint("RIGHT", -22, 0)
         row.checkmark:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
         row.checkmark:Hide()
 
-        row.editBtn = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
-        row.editBtn:SetSize(18, 18)
-        row.editBtn:SetPoint("RIGHT", -22, 0)
-        row.editBtn:SetText("E")
-        row.editBtn:SetScript("OnClick", function(self)
+        row.settingsBtn = CreateFrame("Button", nil, row)
+        row.settingsBtn:SetSize(16, 16)
+        row.settingsBtn:SetPoint("RIGHT", -2, 0)
+        row.settingsBtn:Hide()
+
+        row.settingsBtn.icon = row.settingsBtn:CreateTexture(nil, "ARTWORK")
+        row.settingsBtn.icon:SetAllPoints(true)
+        row.settingsBtn.icon:SetTexture("Interface\\Icons\\INV_Misc_Gear_01")
+        DesaturateTexture(row.settingsBtn.icon)
+
+        row.settingsBtn.highlight = row.settingsBtn:CreateTexture(nil, "HIGHLIGHT")
+        row.settingsBtn.highlight:SetAllPoints(true)
+        row.settingsBtn.highlight:SetTexture("Interface\\Buttons\\ButtonHilight-Square")
+        row.settingsBtn.highlight:SetBlendMode("ADD")
+
+        row.settingsBtn:SetScript("OnClick", function(self)
             local parentRow = self:GetParent()
             if parentRow and parentRow.setData then
-                ShowCreateSetFrame(parentRow.setData)
+                ShowSetRowMenu(self, parentRow.setData)
             end
         end)
-
-        row.deleteBtn = CreateFrame("Button", nil, row, "UIPanelCloseButton")
-        row.deleteBtn:SetSize(18, 18)
-        row.deleteBtn:SetPoint("RIGHT", 0, 0)
-        row.deleteBtn:SetScript("OnClick", function(self)
+        row.settingsBtn:SetScript("OnEnter", function(self)
+            SetRowHover(self:GetParent(), true)
+            GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+            GameTooltip:AddLine("Set options")
+            GameTooltip:Show()
+        end)
+        row.settingsBtn:SetScript("OnLeave", function(self)
+            GameTooltip:Hide()
             local parentRow = self:GetParent()
-            if not parentRow or not parentRow.setData then
-                return
+            if parentRow and not parentRow:IsMouseOver() then
+                SetRowHover(parentRow, false)
             end
-
-            StaticPopupDialogs["SEM_DELETE_SET_CONFIRM"] = {
-                text = "Delete set \"%s\"?",
-                button1 = YES,
-                button2 = NO,
-                OnAccept = function(_, data)
-                    DeleteSetById(data)
-                    RefreshSetRows()
-                end,
-                timeout = 0,
-                whileDead = true,
-                hideOnEscape = true,
-                preferredIndex = STATICPOPUP_NUMDIALOGS,
-            }
-
-            StaticPopup_Show("SEM_DELETE_SET_CONFIRM", parentRow.setData.name or "Set", nil, parentRow.setData.id)
         end)
 
         row:SetScript("OnEnter", function(self)
-            self.bg:SetVertexColor(0.2, 0.2, 0.2, 0.55)
+            SetRowHover(self, true)
         end)
         row:SetScript("OnLeave", function(self)
-            self.bg:SetVertexColor(0, 0, 0, 0.25)
+            if not self.settingsBtn:IsMouseOver() then
+                SetRowHover(self, false)
+            end
         end)
         row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
         row:SetScript("OnClick", function(self, mouseButton)
@@ -572,7 +811,11 @@ local function CreateSetPanel()
         rows[i] = row
     end
 
-    panel:SetScript("OnShow", RefreshSetRows)
+    panel:SetScript("OnShow", function()
+        RefreshSetRows()
+        UpdateButtonSelectedState()
+    end)
+    panel:SetScript("OnHide", UpdateButtonSelectedState)
 end
 
 local function TogglePanel()
@@ -582,9 +825,23 @@ local function TogglePanel()
     if panel:IsShown() then
         panel:Hide()
     else
+        if CharacterFrame and not CharacterFrame:IsShown() then
+            if ToggleCharacter then
+                ToggleCharacter("PaperDollFrame")
+            elseif ShowUIPanel then
+                ShowUIPanel(CharacterFrame)
+                if CharacterFrame_ShowSubFrame then
+                    CharacterFrame_ShowSubFrame("PaperDollFrame")
+                end
+            else
+                CharacterFrame:Show()
+            end
+        end
+        UpdatePanelLayout()
         panel:Show()
         RefreshSetRows()
     end
+    UpdateButtonSelectedState()
 end
 
 local function CreateCharacterButton()
@@ -599,17 +856,23 @@ local function CreateCharacterButton()
     button.bg = button:CreateTexture(nil, "ARTWORK")
     button.bg:SetAllPoints(true)
     button.bg:SetTexture("Interface\\Buttons\\UI-Quickslot2")
+    DesaturateTexture(button.bg)
+    button.bg:SetVertexColor(0.75, 0.75, 0.75, 1)
 
     button.icon = button:CreateTexture(nil, "OVERLAY")
     button.icon:SetSize(24, 24)
     button.icon:SetPoint("CENTER")
     button.icon:SetTexture("Interface\\Icons\\INV_Helmet_03")
-    if button.icon.SetDesaturated then
-        button.icon:SetDesaturated(true)
-    end
+    DesaturateTexture(button.icon)
 
     button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square")
     button:RegisterForClicks("LeftButtonUp")
+
+    button.selected = button:CreateTexture(nil, "OVERLAY")
+    button.selected:SetAllPoints(true)
+    button.selected:SetTexture(TEX_TAB_HIGHLIGHT)
+    button.selected:SetBlendMode("ADD")
+    button.selected:Hide()
 
     button:SetScript("OnClick", TogglePanel)
     button:SetScript("OnEnter", function(self)
@@ -637,6 +900,11 @@ local function EnsureUI()
                 panel:Hide()
             end
             HideCreateSetFrame()
+            UpdateButtonSelectedState()
+        end)
+
+        CharacterFrame:HookScript("OnShow", function()
+            UpdatePanelLayout()
         end)
 
         if CharacterFrame_ShowSubFrame then
