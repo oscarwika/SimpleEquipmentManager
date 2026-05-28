@@ -1,6 +1,6 @@
 # Simple Equipment Manager
 
-Custom equipment sets for **WoW Classic Anniversary** (interface **20504**). A helmet button on the Character panel opens a side panel to save, swap, and track gear sets—similar to retail’s equipment manager, without replacing Blizzard’s UI.
+Custom equipment sets for **WoW Classic Anniversary**. A helmet button on the Character panel opens a side panel to save, swap, and track gear sets—similar to retail’s equipment manager, without replacing Blizzard’s UI.
 
 ## Features
 
