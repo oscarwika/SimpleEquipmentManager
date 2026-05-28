@@ -4,6 +4,8 @@ Custom equipment sets for **WoW Classic Anniversary** (interface **20504**). A h
 
 ## Features
 
+<img width="1097" height="589" alt="image" src="https://github.com/user-attachments/assets/1c64f83d-c00f-484f-8deb-cd4a5f31bbf8" />
+
 - **Character panel** — Helmet button (top-right) toggles an **Equipment Manager** panel docked beside your paper doll; closes when you switch Character tabs or close the frame.
 - **Save sets** — **New Set** stores all equipped armor and weapon slots from what you are wearing now.
 - **Name & icon** — Name your set and pick an icon from a scrollable macro-icon grid.
