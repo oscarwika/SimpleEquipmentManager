@@ -1,0 +1,6 @@
+package-as: SimpleEquipmentManager
+
+ignore:
+  - README.md
+  - .github
+  - .gitignore
