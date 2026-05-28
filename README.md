@@ -42,30 +42,9 @@ Chat messages use the `SEM:` prefix.
 
 ---
 
-## CurseForge (copy & paste)
-
-**Short description:** Lightweight equipment sets for WoW Classic Anniversary—save, swap, and track gear from the Character panel with one-click equip and equipped checkmarks.
-
-**Full description:**
-
-**Simple Equipment Manager** adds named gear sets to the Character window: a helmet button opens a side panel with Blizzard-style chrome. Create sets from your current gear, pick an icon from a scrollable grid, equip with one click, and see a checkmark when a set is fully worn. Edit updates name, icon, and saved gear together; delete uses a confirmation dialog. Sets persist in `SimpleEquipmentManagerDB`. Items must be in your bags to equip (not pulled from the bank).
-
-**How to use:** Character window → helmet button → **New Set** / left-click to equip / right-click or gear menu to edit or delete.
-
-**Requirements:** WoW Classic Anniversary, interface 20504.
-
-**Tags:** Equipment, Gear, Sets, Character, Classic, Anniversary, TBC, UI, Quality of Life
-
 ## Releasing (maintainers)
 
 Automated uploads use [BigWigsMods/packager](https://github.com/BigWigsMods/packager) on tag push (`v1.0.0`, `v1.0.1`, …).
-
-**One-time setup**
-
-1. Create a [CurseForge](https://www.curseforge.com) WoW addon project (Classic / TBC / Anniversary / BCC).
-2. Copy the numeric **Project ID** into `SimpleEquipmentManager.toc` — replace `YOUR_CURSEFORGE_PROJECT_ID` in `## X-Curse-Project-ID`.
-3. Create a CurseForge API token (account settings → API tokens).
-4. In GitHub → **Settings → Secrets and variables → Actions**, add `CF_API_KEY` with that token.
 
 **Ship a version**
 

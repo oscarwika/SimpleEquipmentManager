@@ -1,7 +1,7 @@
 ## Interface: 20504
 ## Interface-BCC: 20504
 ## Title: Simple Equipment Manager
-## Author: Oscar
+## Author: Oscarwizyo
 ## Version: @project-version@
 ## Notes: Lightweight equipment sets on CharacterFrame.
 ## SavedVariables: SimpleEquipmentManagerDB
