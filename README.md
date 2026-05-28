@@ -55,3 +55,23 @@ Chat messages use the `SEM:` prefix.
 **Requirements:** WoW Classic Anniversary, interface 20504.
 
 **Tags:** Equipment, Gear, Sets, Character, Classic, Anniversary, TBC, UI, Quality of Life
+
+## Releasing (maintainers)
+
+Automated uploads use [BigWigsMods/packager](https://github.com/BigWigsMods/packager) on tag push (`v1.0.0`, `v1.0.1`, …).
+
+**One-time setup**
+
+1. Create a [CurseForge](https://www.curseforge.com) WoW addon project (Classic / TBC / Anniversary / BCC).
+2. Copy the numeric **Project ID** into `SimpleEquipmentManager.toc` — replace `YOUR_CURSEFORGE_PROJECT_ID` in `## X-Curse-Project-ID`.
+3. Create a CurseForge API token (account settings → API tokens).
+4. In GitHub → **Settings → Secrets and variables → Actions**, add `CF_API_KEY` with that token.
+
+**Ship a version**
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+GitHub Actions builds the zip, uploads to CurseForge, and attaches it to a GitHub Release. Version in-game comes from the tag via `@project-version@` in the TOC.
